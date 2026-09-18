@@ -114,7 +114,7 @@ if uploaded_files:
                             if val_nombres: nombre_final = val_nombres
                             elif val_paterno: nombre_final = val_paterno
                             elif val_materno: nombre_final = val_materno
-                            else: nombre_final = f"Estimado(a)_{index}"
+                            else: nombre_final = f"Estimado(a)"
 
                             numeros_crudos = []
                             if cel_col_real: numeros_crudos.append(str(row.get(cel_col_real, '')))

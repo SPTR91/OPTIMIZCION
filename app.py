@@ -5,7 +5,7 @@ import io
 import datetime
 
 # 1. CONFIGURACIÓN DE PÁGINA (ESTILO MINIMALISTA APPLE/ESAN)
-st.set_page_config(page_title="Constructor Chattigo", page_icon="⚙️", layout="wide")
+st.set_page_config(page_title="Limpiador Bases Chattigo", page_icon="🔴", layout="wide")
 
 # 2. INYECCIÓN CSS
 st.markdown("""

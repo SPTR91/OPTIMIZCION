@@ -159,8 +159,8 @@ if uploaded_files:
                                 workbook = writer.book
                                 worksheet = writer.sheets['Chattigo']
                                 
-                                format_dest = workbook.add_format({'bold': True, 'fg_color': '#E3173E', 'font_color': 'white', 'font_name': 'Inter', 'font_size': 11, 'align': 'center', 'valign': 'vcenter'})
-                                format_headers = workbook.add_format({'bold': True, 'fg_color': '#696A6D', 'font_color': 'white', 'font_name': 'Inter', 'font_size': 11, 'align': 'center', 'valign': 'vcenter'})
+                                format_dest = workbook.add_format({'bold': True, 'fg_color': '#F17B27', 'font_color': 'white', 'font_name': 'Inter', 'font_size': 11, 'align': 'center', 'valign': 'vcenter'})
+                                format_headers = workbook.add_format({'bold': True, 'fg_color': '#4431B0', 'font_color': 'white', 'font_name': 'Inter', 'font_size': 11, 'align': 'center', 'valign': 'vcenter'})
                                 format_data = workbook.add_format({'font_name': 'Inter', 'font_size': 11, 'valign': 'vcenter'})
                                 
                                 for col_num, value in enumerate(df_final.columns.values):

@@ -88,6 +88,12 @@ st.markdown("""
         border-radius: 12px !important;
         border: none !important;
     }
+    
+    /* Checkbox estilo limpio */
+    .stCheckbox label span {
+        color: #333333 !important;
+        font-weight: 500 !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -110,18 +116,26 @@ if uploaded_files:
             estado_col_real = cols_upper[estado_key]
             st.success(f"✅ Se consolidaron {len(uploaded_files)} archivo(s) correctamente con un total de {len(df)} registros.")
             
-            st.markdown("### Selecciona los Estados a procesar")
+            st.markdown("### 2. Selecciona los Estados a procesar")
             estados_unicos = df[estado_col_real].dropna().astype(str).unique().tolist()
             estados_seleccionados = st.multiselect("Filtra tu base consolidada:", estados_unicos)
             
-            st.markdown("### Estructura de Salida")
-            opciones_amigables = ["NOMBRE", "DNI", "CORREO"]
+            st.markdown("### 3. Estructura de Salida")
+            st.markdown("<p style='font-size: 0.9rem; color: #696A6D; margin-bottom: 1rem;'>La columna 'destination' (teléfono) irá siempre al inicio. Selecciona qué más deseas incluir:</p>", unsafe_allow_html=True)
             
-            cols_extra = st.multiselect(
-                "La columna 'destination' (teléfono) irá siempre al inicio. ¿Qué más deseas incluir?", 
-                opciones_amigables, 
-                default=["NOMBRE", "DNI"]
-            )
+            # Cambiado a Checkboxes
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                incluir_nombre = st.checkbox("NOMBRE", value=True)
+            with col2:
+                incluir_dni = st.checkbox("DNI", value=False)
+            with col3:
+                incluir_correo = st.checkbox("CORREO", value=False)
+            
+            cols_extra = []
+            if incluir_nombre: cols_extra.append("NOMBRE")
+            if incluir_dni: cols_extra.append("DNI")
+            if incluir_correo: cols_extra.append("CORREO")
             
             st.markdown("<br>", unsafe_allow_html=True)
             

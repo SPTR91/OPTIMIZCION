@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 import io
+import datetime
 
 # 1. CONFIGURACIÓN DE PÁGINA (ESTILO MINIMALISTA APPLE/ESAN)
 st.set_page_config(page_title="Constructor Chattigo", page_icon="⚙️", layout="wide")
@@ -52,7 +53,7 @@ if uploaded_files:
             estado_col_real = cols_upper[estado_key]
             st.success(f"✅ Se consolidaron {len(uploaded_files)} archivo(s) con un total de {len(df)} registros.")
             
-            # NUEVO: Selector de Estados mediante Casillas (Checkboxes en 3 columnas)
+            # Selector de Estados mediante Casillas (Checkboxes en 3 columnas)
             st.markdown("### 2. Filtro de Estados")
             st.markdown("<p style='font-size: 0.9rem; color: #696A6D; margin-bottom: 1rem;'>Marca los estados que deseas procesar:</p>", unsafe_allow_html=True)
             
@@ -170,11 +171,15 @@ if uploaded_files:
                                     
                                 worksheet.freeze_panes(1, 0)
                             
+                            # Generar nombre del archivo con fecha dinámica: PLANTILLA_HSM_DD-MM-YY
+                            fecha_actual = datetime.datetime.now().strftime("%d-%m-%y")
+                            nombre_archivo = f"PLANTILLA_HSM_{fecha_actual}"
+                            
                             st.markdown("<br>", unsafe_allow_html=True)
                             st.download_button(
                                 label="📥 Descargar Plantilla (.xlsx)", 
                                 data=output.getvalue(), 
-                                file_name="Plantilla_Chattigo_ESAN.xlsx", 
+                                file_name=f"{nombre_archivo}.xlsx", 
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             )
                         else:

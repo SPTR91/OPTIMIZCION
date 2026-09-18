@@ -35,7 +35,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 3. INTERFAZ DE USUARIO
-st.markdown("<h1>⚙️ Constructor <span class='esan-red'>Chattigo</span></h1>", unsafe_allow_html=True)
+st.markdown("<h1>🔴 Limpiador Bases <span class='esan-red'>Chattigo</span></h1>", unsafe_allow_html=True)
 st.markdown("<p style='font-size: 1.1rem; color: #696A6D; margin-bottom: 2rem;'>Sube tus bases crudas, consolídalas y genera tu plantilla impecable.</p>", unsafe_allow_html=True)
 
 uploaded_files = st.file_uploader("Arrastra tus archivos Excel (.xlsx) aquí", type=['xlsx'], accept_multiple_files=True)

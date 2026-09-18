@@ -5,7 +5,7 @@ import io
 import datetime
 
 # 1. CONFIGURACIÓN DE PÁGINA (ESTILO MINIMALISTA APPLE/ESAN)
-st.set_page_config(page_title="Limpiador Bases Chattigo", page_icon="🔴", layout="wide")
+st.set_page_config(page_title="Filtro Bases Chattigo", page_icon="🔴", layout="wide")
 
 # 2. INYECCIÓN CSS
 st.markdown("""
@@ -35,7 +35,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 3. INTERFAZ DE USUARIO
-st.markdown("<h1>🔴 Limpiador Bases <span class='esan-red'>Chattigo</span></h1>", unsafe_allow_html=True)
+st.markdown("<h1>🔴 Filtro Bases <span class='esan-red'>Chattigo</span></h1>", unsafe_allow_html=True)
 st.markdown("<p style='font-size: 1.1rem; color: #696A6D; margin-bottom: 2rem;'>Sube tus bases del Backoffice y genera tu plantilla!</p>", unsafe_allow_html=True)
 
 uploaded_files = st.file_uploader("Arrastra tus archivos Excel (.xlsx) aquí", type=['xlsx'], accept_multiple_files=True)

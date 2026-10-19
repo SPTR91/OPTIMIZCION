@@ -50,10 +50,11 @@ if uploaded_files:
         with st.spinner('Consolidando datos de forma segura...'):
             dfs = []
             for file in uploaded_files:
+                # BLINDAJE 1: dtype=str obliga a que no se conviertan números en decimales
                 if file.name.endswith('.csv'):
-                    dfs.append(pd.read_csv(file, encoding='utf-8', on_bad_lines='skip'))
+                    dfs.append(pd.read_csv(file, encoding='utf-8', on_bad_lines='skip', dtype=str))
                 else:
-                    dfs.append(pd.read_excel(file))
+                    dfs.append(pd.read_excel(file, dtype=str))
             df = pd.concat(dfs, ignore_index=True)
             
         cols_upper = {str(c).upper().strip(): c for c in df.columns}
@@ -134,6 +135,10 @@ if uploaded_files:
                                         
                                 for num in numeros_crudos:
                                     if not num or str(num).lower() == 'nan': continue
+                                    
+                                    # BLINDAJE 2: Quitar decimal falso
+                                    if num.endswith('.0'): num = num[:-2]
+                                        
                                     limpio = re.sub(r'\D', '', str(num))
                                     final = ""
                                     
@@ -148,6 +153,8 @@ if uploaded_files:
                                             if "NOMBRE" in cols_extra: fila_res["NOMBRE"] = nombre_final
                                             if "DNI" in cols_extra:
                                                 val_dni = str(row.get(dni_col, '')) if dni_col else ""
+                                                # Quitar el .0 falso en DNIs también por seguridad
+                                                if val_dni.endswith('.0'): val_dni = val_dni[:-2]
                                                 fila_res["DNI"] = "" if val_dni.lower() == 'nan' else val_dni
                                             if "CORREO" in cols_extra:
                                                 val_correo = str(row.get(correo_col, '')) if correo_col else ""
@@ -210,8 +217,11 @@ if uploaded_files:
                     else:
                         for index, row in df.iterrows():
                             # Limpieza del teléfono
-                            num_raw = str(row.get(phone_col, ''))
+                            num_raw = str(row.get(phone_col, '')).strip()
                             if not num_raw or num_raw.lower() == 'nan': continue
+                            
+                            # BLINDAJE 2: Quitar decimal falso
+                            if num_raw.endswith('.0'): num_raw = num_raw[:-2]
                             
                             limpio = re.sub(r'\D', '', num_raw)
                             final = ""
@@ -220,7 +230,6 @@ if uploaded_files:
                             elif len(limpio) == 11 and limpio.startswith("519"): final = limpio
                             
                             if final and final not in ["51999999999", "51987654321"]:
-                                # Limpieza del Nombre con destructor de símbolos raros
                                 val_nombres = str(row.get(nombres_col, '')).strip() if nombres_col else ""
                                 val_paterno = str(row.get(paterno_col, '')).strip() if paterno_col else ""
                                 
@@ -230,7 +239,6 @@ if uploaded_files:
                                 if val_nombres: 
                                     nombre_final = val_nombres
                                 elif val_paterno: 
-                                    # Extrae solo letras (a-z, A-Z) y espacios, matando cualquier tilde rota o símbolo
                                     nombre_final = re.sub(r'[^a-zA-Z\s]', '', val_paterno).strip()
                                 else: 
                                     nombre_final = "Estimado(a)"
@@ -256,7 +264,6 @@ if uploaded_files:
                                 workbook = writer.book
                                 worksheet = writer.sheets['Chattigo']
                                 
-                                # Se respetan estrictamente los colores indicados
                                 format_dest = workbook.add_format({'bold': True, 'fg_color': '#F17B27', 'font_color': 'white', 'font_name': 'Inter', 'font_size': 11, 'align': 'center', 'valign': 'vcenter'})
                                 format_headers = workbook.add_format({'bold': True, 'fg_color': '#4431B0', 'font_color': 'white', 'font_name': 'Inter', 'font_size': 11, 'align': 'center', 'valign': 'vcenter'})
                                 format_data = workbook.add_format({'font_name': 'Inter', 'font_size': 11, 'valign': 'vcenter'})

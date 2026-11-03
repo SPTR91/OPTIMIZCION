@@ -1,8 +1,16 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import re
 import io
 import datetime
+import requests
+
+# ==========================================
+# ZONA DE CONFIGURACIÓN DE TELEMETRÍA (KPIs)
+# ==========================================
+# Pega aquí la URL de tu aplicación web de Google Apps Script (termina en /exec)
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyGm-pDC2avah3JdRr-df856xyglaDr3aD4u1dNW3aB18JwhQpEp-5-Om-pMSBV5Gga/exec"
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Filtro Bases Chattigo", page_icon="🔴", layout="wide")
@@ -31,10 +39,51 @@ st.markdown("""
     [data-testid="stFileUploadDropzone"] {background-color: #F8F9FA !important; border: 2px dashed #E0E0E0 !important; border-radius: 16px !important;}
     .stAlert {border-radius: 12px !important; border: none !important;}
     .stCheckbox label span {color: #333333 !important; font-weight: 500 !important;}
+    .stTextInput input {border-radius: 10px !important; border: 1px solid #E0E0E0 !important; background-color: #F8F9FA !important; color: #333333 !important;}
     </style>
 """, unsafe_allow_html=True)
 
-# 3. INTERFAZ DE USUARIO
+# 3. FUNCIONES DE APOYO (TELEMETRÍA Y NÚMERO TESTIGO)
+def obtener_ip_usuario():
+    """Intenta obtener la IP real del cliente desde las cabeceras de conexión de Streamlit."""
+    try:
+        headers = st.context.headers
+        if headers:
+            ip = headers.get("X-Forwarded-For") or headers.get("X-Real-Ip")
+            if ip:
+                return ip.split(",")[0].strip()
+    except Exception:
+        pass
+    return "IP_Oculta"
+
+def registrar_kpi(categoria, filas_procesadas, uso_testigo):
+    """Envía silenciosamente los KPIs al Google Sheet."""
+    if not WEBHOOK_URL or "PEGA_AQUI" in WEBHOOK_URL:
+        return
+    try:
+        ip_cliente = obtener_ip_usuario()
+        payload = {
+            "ip": ip_cliente,
+            "categoria": categoria,
+            "filas": filas_procesadas,
+            "testigo": "Sí" if uso_testigo else "No"
+        }
+        requests.post(WEBHOOK_URL, json=payload, timeout=3)
+    except Exception:
+        pass # Falla en silencio para jamás interrumpir al asesor
+
+def limpiar_numero_testigo(num_str):
+    """Valida y formatea el número de seguimiento del asesor."""
+    if not num_str:
+        return ""
+    limpio = re.sub(r'\D', '', str(num_str))
+    if len(limpio) == 9 and limpio.startswith("9"):
+        return "51" + limpio
+    elif len(limpio) == 11 and limpio.startswith("519"):
+        return limpio
+    return ""
+
+# 4. INTERFAZ DE USUARIO
 st.markdown("<h1>🔴 Filtro Bases <span class='esan-red'>Chattigo</span></h1>", unsafe_allow_html=True)
 
 # Selector de Categoría
@@ -79,16 +128,18 @@ if uploaded_files:
                         if st.checkbox(estado, key=f"est_{i}"):
                             estados_seleccionados.append(estado)
                 
-                st.markdown("### 3. Estructura de Salida")
-                col_c1, col_c2, col_c3 = st.columns(3)
-                with col_c1: incluir_nombre = st.checkbox("NOMBRE", value=True)
-                with col_c2: incluir_dni = st.checkbox("DNI", value=False)
-                with col_c3: incluir_correo = st.checkbox("CORREO", value=False)
+                st.markdown("### 3. Estructura de Salida y Control")
+                st.markdown("<p style='font-size: 0.9rem; color: #696A6D; margin-bottom: 1rem;'>La columna 'destination' irá siempre al inicio.</p>", unsafe_allow_html=True)
                 
-                cols_extra = []
-                if incluir_nombre: cols_extra.append("NOMBRE")
-                if incluir_dni: cols_extra.append("DNI")
-                if incluir_correo: cols_extra.append("CORREO")
+                col_s1, col_s2 = st.columns(2)
+                with col_s1:
+                    incluir_nombre = st.checkbox("NOMBRE", value=True)
+                with col_s2:
+                    num_asesor_input = st.text_input(
+                        "📱 Número de seguimiento (Opcional):", 
+                        placeholder="Ej: 987654321",
+                        help="Ingresa tu celular para recibir también el mensaje enviado y validar que todo esté bien."
+                    )
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
@@ -101,6 +152,17 @@ if uploaded_files:
                             resultados = []
                             historial = set()
                             
+                            # Inyectar número testigo del asesor si lo ingresó
+                            num_testigo = limpiar_numero_testigo(num_asesor_input)
+                            if num_asesor_input and not num_testigo:
+                                st.warning("⚠️ El número de seguimiento ingresado no es un celular válido de Perú (debe tener 9 dígitos y empezar con 9). Se procesará la base sin él.")
+                            elif num_testigo:
+                                historial.add(f"ASESOR_{num_testigo}")
+                                fila_testigo = {'destination': num_testigo}
+                                if incluir_nombre:
+                                    fila_testigo['NOMBRE'] = "Estimado(a)"
+                                resultados.append(fila_testigo)
+
                             cel_col_real = cols_upper.get(next((k for k in cols_upper.keys() if "CELULAR" in k), None))
                             fijo_col_real = cols_upper.get(next((k for k in cols_upper.keys() if "FIJO" in k), None))
                             otros_col_real = cols_upper.get(next((k for k in cols_upper.keys() if "OTROS" in k), None))
@@ -108,8 +170,6 @@ if uploaded_files:
                             nombres_col = cols_upper.get("NOMBRES")
                             paterno_col = cols_upper.get("APELLIDO PATERNO")
                             materno_col = cols_upper.get("APELLIDO MATERNO")
-                            dni_col = cols_upper.get(next((k for k in cols_upper.keys() if "DNI" in k), None))
-                            correo_col = cols_upper.get(next((k for k in cols_upper.keys() if "CORREO" in k), None))
                             
                             for index, row in df_filtrado.iterrows():
                                 val_nombres = str(row.get(nombres_col, '')).strip() if nombres_col else ""
@@ -147,22 +207,19 @@ if uploaded_files:
                                         
                                     if final and final not in ["51999999999", "51987654321"]:
                                         clave = f"{nombre_final}_{final}"
-                                        if clave not in historial:
+                                        if clave not in historial and f"ASESOR_{final}" not in historial:
                                             historial.add(clave)
                                             fila_res = {'destination': final}
-                                            if "NOMBRE" in cols_extra: fila_res["NOMBRE"] = nombre_final
-                                            if "DNI" in cols_extra:
-                                                val_dni = str(row.get(dni_col, '')) if dni_col else ""
-                                                # Quitar el .0 falso en DNIs también por seguridad
-                                                if val_dni.endswith('.0'): val_dni = val_dni[:-2]
-                                                fila_res["DNI"] = "" if val_dni.lower() == 'nan' else val_dni
-                                            if "CORREO" in cols_extra:
-                                                val_correo = str(row.get(correo_col, '')) if correo_col else ""
-                                                fila_res["CORREO"] = "" if val_correo.lower() == 'nan' else val_correo
+                                            if incluir_nombre:
+                                                fila_res["NOMBRE"] = nombre_final
                                             resultados.append(fila_res)
                             
                             if resultados:
                                 df_final = pd.DataFrame(resultados)
+                                
+                                # REGISTRO SILENCIOSO DE KPIs
+                                registrar_kpi("Convocatorias", len(df_final), bool(num_testigo))
+                                
                                 st.success(f"✅ Proceso completado. Se extrajeron {len(df_final)} contactos válidos.")
                                 st.dataframe(df_final.head(), use_container_width=True)
                                 
@@ -199,14 +256,34 @@ if uploaded_files:
         elif categoria == "Segmentos":
             st.success(f"✅ Se consolidaron {len(uploaded_files)} archivo(s) de Segmentos con {len(df)} registros.")
             
-            st.markdown("### 2. Estructura de Salida")
-            exportar_nombre = st.checkbox("Exportar con columna NOMBRE", value=True)
+            st.markdown("### 2. Estructura de Salida y Control")
+            col_seg1, col_seg2 = st.columns(2)
+            with col_seg1:
+                exportar_nombre = st.checkbox("NOMBRE", value=True)
+            with col_seg2:
+                num_asesor_seg = st.text_input(
+                    "📱 Número de seguimiento (Opcional):", 
+                    placeholder="Ej: 987654321",
+                    key="seg_phone",
+                    help="Ingresa tu celular para recibir también el mensaje enviado y validar que todo esté bien."
+                )
             
             if st.button("Procesar Segmentos"):
                 with st.spinner('Limpiando caracteres y validando números...'):
                     resultados = []
                     historial = set()
                     
+                    # Inyectar número testigo del asesor si lo ingresó
+                    num_testigo_seg = limpiar_numero_testigo(num_asesor_seg)
+                    if num_asesor_seg and not num_testigo_seg:
+                        st.warning("⚠️ El número de seguimiento ingresado no es un celular válido de Perú. Se procesará la base sin él.")
+                    elif num_testigo_seg:
+                        historial.add(f"ASESOR_{num_testigo_seg}")
+                        fila_testigo = {'destination': num_testigo_seg}
+                        if exportar_nombre:
+                            fila_testigo['NOMBRE'] = "Estimado(a)"
+                        resultados.append(fila_testigo)
+
                     # Identificar columnas en Segmentos
                     phone_col = next((c for c in df.columns if "WHATSAPP" in str(c).upper() or "NÚMERO" in str(c).upper() or "NUMERO" in str(c).upper()), None)
                     nombres_col = next((c for c in df.columns if "NOMBRES" in str(c).upper()), None)
@@ -246,7 +323,7 @@ if uploaded_files:
                                 if not nombre_final: nombre_final = "Estimado(a)"
 
                                 clave = f"{nombre_final}_{final}"
-                                if clave not in historial:
+                                if clave not in historial and f"ASESOR_{final}" not in historial:
                                     historial.add(clave)
                                     fila_res = {'destination': final}
                                     if exportar_nombre:
@@ -255,6 +332,10 @@ if uploaded_files:
                         
                         if resultados:
                             df_final = pd.DataFrame(resultados)
+                            
+                            # REGISTRO SILENCIOSO DE KPIs
+                            registrar_kpi("Segmentos", len(df_final), bool(num_testigo_seg))
+                            
                             st.success(f"✅ Se extrajeron {len(df_final)} contactos válidos y limpios.")
                             st.dataframe(df_final.head(), use_container_width=True)
                             

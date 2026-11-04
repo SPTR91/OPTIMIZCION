@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import re
 import io
@@ -9,7 +8,6 @@ import requests
 # ==========================================
 # ZONA DE CONFIGURACIÓN DE TELEMETRÍA (KPIs)
 # ==========================================
-# Pega aquí la URL de tu aplicación web de Google Apps Script (termina en /exec)
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyGm-pDC2avah3JdRr-df856xyglaDr3aD4u1dNW3aB18JwhQpEp-5-Om-pMSBV5Gga/exec"
 
 # 1. CONFIGURACIÓN DE PÁGINA
@@ -43,55 +41,43 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. FUNCIONES DE APOYO (TELEMETRÍA Y NÚMERO TESTIGO)
+# 3. FUNCIONES DE APOYO
 def obtener_ip_usuario():
-    """Intenta obtener la IP real del cliente desde las cabeceras de conexión de Streamlit."""
     try:
         headers = st.context.headers
         if headers:
             ip = headers.get("X-Forwarded-For") or headers.get("X-Real-Ip")
-            if ip:
-                return ip.split(",")[0].strip()
+            if ip: return ip.split(",")[0].strip()
     except Exception:
         pass
     return "IP_Oculta"
 
 def registrar_kpi(categoria, filas_procesadas, uso_testigo):
-    """Envía silenciosamente los KPIs al Google Sheet."""
-    if not WEBHOOK_URL or "PEGA_AQUI" in WEBHOOK_URL:
-        return
+    if not WEBHOOK_URL or "PEGA_AQUI" in WEBHOOK_URL: return
     try:
-        ip_cliente = obtener_ip_usuario()
         payload = {
-            "ip": ip_cliente,
+            "ip": obtener_ip_usuario(),
             "categoria": categoria,
             "filas": filas_procesadas,
             "testigo": "Sí" if uso_testigo else "No"
         }
         requests.post(WEBHOOK_URL, json=payload, timeout=3)
     except Exception:
-        pass # Falla en silencio para jamás interrumpir al asesor
+        pass 
 
 def limpiar_numero_testigo(num_str):
-    """Valida y formatea el número de seguimiento del asesor."""
-    if not num_str:
-        return ""
+    if not num_str: return ""
     limpio = re.sub(r'\D', '', str(num_str))
-    if len(limpio) == 9 and limpio.startswith("9"):
-        return "51" + limpio
-    elif len(limpio) == 11 and limpio.startswith("519"):
-        return limpio
+    if len(limpio) == 9 and limpio.startswith("9"): return "51" + limpio
+    elif len(limpio) == 11 and limpio.startswith("519"): return limpio
     return ""
 
 # 4. INTERFAZ DE USUARIO
 st.markdown("<h1>🔴 Filtro Bases <span class='esan-red'>Chattigo</span></h1>", unsafe_allow_html=True)
 
-# Selector de Categoría
 categoria = st.radio("Selecciona el tipo de base a procesar:", ["Convocatorias", "Segmentos"], horizontal=True)
-
 st.markdown("<p style='font-size: 1.1rem; color: #696A6D; margin-bottom: 2rem;'>Sube tus bases y genera tu plantilla!</p>", unsafe_allow_html=True)
 
-# Aceptamos CSV y XLSX
 uploaded_files = st.file_uploader("Arrastra tus archivos Excel o CSV aquí", type=['xlsx', 'csv'], accept_multiple_files=True)
 
 if uploaded_files:
@@ -99,7 +85,6 @@ if uploaded_files:
         with st.spinner('Consolidando datos de forma segura...'):
             dfs = []
             for file in uploaded_files:
-                # BLINDAJE 1: dtype=str obliga a que no se conviertan números en decimales
                 if file.name.endswith('.csv'):
                     dfs.append(pd.read_csv(file, encoding='utf-8', on_bad_lines='skip', dtype=str))
                 else:
@@ -129,17 +114,22 @@ if uploaded_files:
                             estados_seleccionados.append(estado)
                 
                 st.markdown("### 3. Estructura de Salida y Control")
-                st.markdown("<p style='font-size: 0.9rem; color: #696A6D; margin-bottom: 1rem;'>La columna 'destination' irá siempre al inicio.</p>", unsafe_allow_html=True)
-                
                 col_s1, col_s2 = st.columns(2)
                 with col_s1:
-                    incluir_nombre = st.checkbox("NOMBRE", value=True)
-                with col_s2:
-                    num_asesor_input = st.text_input(
-                        "📱 Número de seguimiento (Opcional):", 
-                        placeholder="Ej: 987654321",
-                        help="Ingresa tu celular para recibir también el mensaje enviado y validar que todo esté bien."
-                    )
+                    incluir_nombre = st.checkbox("Incluir columna NOMBRE", value=True)
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                usar_testigo = st.checkbox("Añadir mi número de seguimiento")
+                
+                num_asesor_input = ""
+                nombre_asesor_input = ""
+                
+                if usar_testigo:
+                    col_t1, col_t2 = st.columns(2)
+                    with col_t1:
+                        num_asesor_input = st.text_input("Número (Requerido):", placeholder="Ej: 987654321")
+                    with col_t2:
+                        nombre_asesor_input = st.text_input("Nombre (Opcional):", placeholder="Ej: Manuel")
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
@@ -152,21 +142,22 @@ if uploaded_files:
                             resultados = []
                             historial = set()
                             
-                            # Inyectar número testigo del asesor si lo ingresó
-                            num_testigo = limpiar_numero_testigo(num_asesor_input)
-                            if num_asesor_input and not num_testigo:
-                                st.warning("⚠️ El número de seguimiento ingresado no es un celular válido de Perú (debe tener 9 dígitos y empezar con 9). Se procesará la base sin él.")
-                            elif num_testigo:
-                                historial.add(f"ASESOR_{num_testigo}")
-                                fila_testigo = {'destination': num_testigo}
-                                if incluir_nombre:
-                                    fila_testigo['NOMBRE'] = "Estimado(a)"
-                                resultados.append(fila_testigo)
+                            # Procesar testigo
+                            num_testigo = ""
+                            if usar_testigo:
+                                num_testigo = limpiar_numero_testigo(num_asesor_input)
+                                if num_asesor_input and not num_testigo:
+                                    st.warning("⚠️ El número ingresado no es válido. Se procesará sin él.")
+                                elif num_testigo:
+                                    historial.add(f"ASESOR_{num_testigo}")
+                                    fila_testigo = {'destination': num_testigo}
+                                    if incluir_nombre:
+                                        fila_testigo['NOMBRE'] = nombre_asesor_input.strip() if nombre_asesor_input.strip() else "Estimado(a)"
+                                    resultados.append(fila_testigo)
 
                             cel_col_real = cols_upper.get(next((k for k in cols_upper.keys() if "CELULAR" in k), None))
                             fijo_col_real = cols_upper.get(next((k for k in cols_upper.keys() if "FIJO" in k), None))
                             otros_col_real = cols_upper.get(next((k for k in cols_upper.keys() if "OTROS" in k), None))
-                            
                             nombres_col = cols_upper.get("NOMBRES")
                             paterno_col = cols_upper.get("APELLIDO PATERNO")
                             materno_col = cols_upper.get("APELLIDO MATERNO")
@@ -195,13 +186,9 @@ if uploaded_files:
                                         
                                 for num in numeros_crudos:
                                     if not num or str(num).lower() == 'nan': continue
-                                    
-                                    # BLINDAJE 2: Quitar decimal falso
                                     if num.endswith('.0'): num = num[:-2]
-                                        
                                     limpio = re.sub(r'\D', '', str(num))
                                     final = ""
-                                    
                                     if len(limpio) == 9 and limpio.startswith("9"): final = "51" + limpio
                                     elif len(limpio) == 11 and limpio.startswith("519"): final = limpio
                                         
@@ -210,25 +197,19 @@ if uploaded_files:
                                         if clave not in historial and f"ASESOR_{final}" not in historial:
                                             historial.add(clave)
                                             fila_res = {'destination': final}
-                                            if incluir_nombre:
-                                                fila_res["NOMBRE"] = nombre_final
+                                            if incluir_nombre: fila_res["NOMBRE"] = nombre_final
                                             resultados.append(fila_res)
                             
                             if resultados:
                                 df_final = pd.DataFrame(resultados)
-                                
-                                # REGISTRO SILENCIOSO DE KPIs
                                 registrar_kpi("Convocatorias", len(df_final), bool(num_testigo))
-                                
                                 st.success(f"✅ Proceso completado. Se extrajeron {len(df_final)} contactos válidos.")
-                                st.dataframe(df_final.head(), use_container_width=True)
                                 
                                 output = io.BytesIO()
                                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                                     df_final.to_excel(writer, index=False, sheet_name='Chattigo')
                                     workbook = writer.book
                                     worksheet = writer.sheets['Chattigo']
-                                    
                                     format_dest = workbook.add_format({'bold': True, 'fg_color': '#F17B27', 'font_color': 'white', 'font_name': 'Inter', 'font_size': 11, 'align': 'center', 'valign': 'vcenter'})
                                     format_headers = workbook.add_format({'bold': True, 'fg_color': '#4431B0', 'font_color': 'white', 'font_name': 'Inter', 'font_size': 11, 'align': 'center', 'valign': 'vcenter'})
                                     format_data = workbook.add_format({'font_name': 'Inter', 'font_size': 11, 'valign': 'vcenter'})
@@ -238,12 +219,9 @@ if uploaded_files:
                                         worksheet.write(0, col_num, value, fmt)
                                         max_len = max(df_final.iloc[:, col_num].astype(str).map(len).max(), len(str(value))) + 5
                                         worksheet.set_column(col_num, col_num, max_len, format_data)
-                                        
                                     worksheet.freeze_panes(1, 0)
                                 
-                                fecha_actual = datetime.datetime.now().strftime("%d-%m-%y")
-                                nombre_archivo = f"PLANTILLA_HSM_{fecha_actual}"
-                                
+                                nombre_archivo = f"PLANTILLA_HSM_{datetime.datetime.now().strftime('%d-%m-%y')}"
                                 st.download_button(label="📥 Descargar Plantilla (.xlsx)", data=output.getvalue(), file_name=f"{nombre_archivo}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                             else:
                                 st.warning("⚠️ Ningún número superó los filtros.")
@@ -257,94 +235,82 @@ if uploaded_files:
             st.success(f"✅ Se consolidaron {len(uploaded_files)} archivo(s) de Segmentos con {len(df)} registros.")
             
             st.markdown("### 2. Estructura de Salida y Control")
-            col_seg1, col_seg2 = st.columns(2)
-            with col_seg1:
-                exportar_nombre = st.checkbox("NOMBRE", value=True)
-            with col_seg2:
-                num_asesor_seg = st.text_input(
-                    "📱 Número de seguimiento (Opcional):", 
-                    placeholder="Ej: 987654321",
-                    key="seg_phone",
-                    help="Ingresa tu celular para recibir también el mensaje enviado y validar que todo esté bien."
-                )
+            exportar_nombre = st.checkbox("Incluir columna NOMBRE", value=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            usar_testigo_seg = st.checkbox("Añadir mi número de seguimiento", key="chk_seg")
+            
+            num_asesor_seg = ""
+            nombre_asesor_seg = ""
+            
+            if usar_testigo_seg:
+                col_ts1, col_ts2 = st.columns(2)
+                with col_ts1:
+                    num_asesor_seg = st.text_input("Número (Requerido):", placeholder="Ej: 987654321", key="num_seg")
+                with col_ts2:
+                    nombre_asesor_seg = st.text_input("Nombre (Opcional):", placeholder="Ej: Manuel", key="nom_seg")
             
             if st.button("Procesar Segmentos"):
                 with st.spinner('Limpiando caracteres y validando números...'):
                     resultados = []
                     historial = set()
                     
-                    # Inyectar número testigo del asesor si lo ingresó
-                    num_testigo_seg = limpiar_numero_testigo(num_asesor_seg)
-                    if num_asesor_seg and not num_testigo_seg:
-                        st.warning("⚠️ El número de seguimiento ingresado no es un celular válido de Perú. Se procesará la base sin él.")
-                    elif num_testigo_seg:
-                        historial.add(f"ASESOR_{num_testigo_seg}")
-                        fila_testigo = {'destination': num_testigo_seg}
-                        if exportar_nombre:
-                            fila_testigo['NOMBRE'] = "Estimado(a)"
-                        resultados.append(fila_testigo)
+                    num_testigo_seg = ""
+                    if usar_testigo_seg:
+                        num_testigo_seg = limpiar_numero_testigo(num_asesor_seg)
+                        if num_asesor_seg and not num_testigo_seg:
+                            st.warning("⚠️ El número ingresado no es válido. Se procesará sin él.")
+                        elif num_testigo_seg:
+                            historial.add(f"ASESOR_{num_testigo_seg}")
+                            fila_testigo = {'destination': num_testigo_seg}
+                            if exportar_nombre:
+                                fila_testigo['NOMBRE'] = nombre_asesor_seg.strip() if nombre_asesor_seg.strip() else "Estimado(a)"
+                            resultados.append(fila_testigo)
 
-                    # Identificar columnas en Segmentos
                     phone_col = next((c for c in df.columns if "WHATSAPP" in str(c).upper() or "NÚMERO" in str(c).upper() or "NUMERO" in str(c).upper()), None)
                     nombres_col = next((c for c in df.columns if "NOMBRES" in str(c).upper()), None)
                     paterno_col = next((c for c in df.columns if "APELLIDO_PATERNO" in str(c).upper() or "APELLIDO PATERNO" in str(c).upper()), None)
                     
                     if not phone_col:
-                        st.error("No se detectó la columna de teléfono/WhatsApp en el archivo.")
+                        st.error("No se detectó la columna de teléfono/WhatsApp.")
                     else:
                         for index, row in df.iterrows():
-                            # Limpieza del teléfono
                             num_raw = str(row.get(phone_col, '')).strip()
                             if not num_raw or num_raw.lower() == 'nan': continue
-                            
-                            # BLINDAJE 2: Quitar decimal falso
                             if num_raw.endswith('.0'): num_raw = num_raw[:-2]
-                            
                             limpio = re.sub(r'\D', '', num_raw)
                             final = ""
-                            
                             if len(limpio) == 9 and limpio.startswith("9"): final = "51" + limpio
                             elif len(limpio) == 11 and limpio.startswith("519"): final = limpio
                             
                             if final and final not in ["51999999999", "51987654321"]:
                                 val_nombres = str(row.get(nombres_col, '')).strip() if nombres_col else ""
                                 val_paterno = str(row.get(paterno_col, '')).strip() if paterno_col else ""
-                                
                                 val_nombres = "" if val_nombres.lower() == 'nan' else val_nombres
                                 val_paterno = "" if val_paterno.lower() == 'nan' else val_paterno
                                 
-                                if val_nombres: 
-                                    nombre_final = val_nombres
-                                elif val_paterno: 
-                                    nombre_final = re.sub(r'[^a-zA-Z\s]', '', val_paterno).strip()
-                                else: 
-                                    nombre_final = "Estimado(a)"
-                                    
+                                if val_nombres: nombre_final = val_nombres
+                                elif val_paterno: nombre_final = re.sub(r'[^a-zA-Z\s]', '', val_paterno).strip()
+                                else: nombre_final = "Estimado(a)"
                                 if not nombre_final: nombre_final = "Estimado(a)"
 
                                 clave = f"{nombre_final}_{final}"
                                 if clave not in historial and f"ASESOR_{final}" not in historial:
                                     historial.add(clave)
                                     fila_res = {'destination': final}
-                                    if exportar_nombre:
-                                        fila_res["NOMBRE"] = nombre_final
+                                    if exportar_nombre: fila_res["NOMBRE"] = nombre_final
                                     resultados.append(fila_res)
                         
                         if resultados:
                             df_final = pd.DataFrame(resultados)
-                            
-                            # REGISTRO SILENCIOSO DE KPIs
                             registrar_kpi("Segmentos", len(df_final), bool(num_testigo_seg))
-                            
                             st.success(f"✅ Se extrajeron {len(df_final)} contactos válidos y limpios.")
-                            st.dataframe(df_final.head(), use_container_width=True)
                             
                             output = io.BytesIO()
                             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                                 df_final.to_excel(writer, index=False, sheet_name='Chattigo')
                                 workbook = writer.book
                                 worksheet = writer.sheets['Chattigo']
-                                
                                 format_dest = workbook.add_format({'bold': True, 'fg_color': '#F17B27', 'font_color': 'white', 'font_name': 'Inter', 'font_size': 11, 'align': 'center', 'valign': 'vcenter'})
                                 format_headers = workbook.add_format({'bold': True, 'fg_color': '#4431B0', 'font_color': 'white', 'font_name': 'Inter', 'font_size': 11, 'align': 'center', 'valign': 'vcenter'})
                                 format_data = workbook.add_format({'font_name': 'Inter', 'font_size': 11, 'valign': 'vcenter'})
@@ -354,15 +320,11 @@ if uploaded_files:
                                     worksheet.write(0, col_num, value, fmt)
                                     max_len = max(df_final.iloc[:, col_num].astype(str).map(len).max(), len(str(value))) + 5
                                     worksheet.set_column(col_num, col_num, max_len, format_data)
-                                    
                                 worksheet.freeze_panes(1, 0)
                             
-                            fecha_actual = datetime.datetime.now().strftime("%d-%m-%y")
-                            nombre_archivo = f"PLANTILLA_HSM_{fecha_actual}"
-                            
+                            nombre_archivo = f"PLANTILLA_HSM_{datetime.datetime.now().strftime('%d-%m-%y')}"
                             st.download_button(label="📥 Descargar Plantilla (.xlsx)", data=output.getvalue(), file_name=f"{nombre_archivo}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                         else:
                             st.warning("⚠️ Ningún número superó los filtros.")
-
     except Exception as e:
         st.error(f"Ocurrió un error al procesar: {e}")

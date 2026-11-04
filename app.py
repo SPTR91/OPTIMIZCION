@@ -119,7 +119,7 @@ if uploaded_files:
                     incluir_nombre = st.checkbox("Incluir columna NOMBRE", value=True)
                 
                 st.markdown("<br>", unsafe_allow_html=True)
-                usar_testigo = st.checkbox("Añadir mi número de seguimiento")
+                usar_testigo = st.checkbox("Añadir mi número")
                 
                 num_asesor_input = ""
                 nombre_asesor_input = ""
@@ -238,7 +238,7 @@ if uploaded_files:
             exportar_nombre = st.checkbox("Incluir columna NOMBRE", value=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
-            usar_testigo_seg = st.checkbox("Añadir mi número de seguimiento", key="chk_seg")
+            usar_testigo_seg = st.checkbox("Añadir mi número", key="chk_seg")
             
             num_asesor_seg = ""
             nombre_asesor_seg = ""

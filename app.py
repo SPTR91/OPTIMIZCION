@@ -93,7 +93,7 @@ if not st.session_state.user:
                 else:
                     try:
                         # El trigger de SQL creará el perfil automáticamente como 'asesor'
-                        supabase.auth.signUp({
+                        supabase.auth.sign_up({
                             "email": reg_email, 
                             "password": reg_pass,
                             "options": {"data": {"nombre": reg_nombre, "apellido": reg_apellido}}

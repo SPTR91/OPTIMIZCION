@@ -14,8 +14,8 @@ WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyGm-pDC2avah3JdRr-df856x
 
 # Conexión a Supabase (Estos datos los sacarás de tu proyecto Supabase -> Project Settings -> API)
 # En Render, esto se pondrá en Environment Variables. Aquí los leemos usando st.secrets si existen.
-SUPABASE_URL = st.secrets.get("SUPABASE_URL", "https://kqalrigciifqvirejgoe.supabase.co")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "https://kqalrigciifqvirejgoe.supabase.co")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://kqalrigciifqvirejgoe.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_E6g6X8EpkewpMvOiFnml5A_9yNr9GBC")
 
 @st.cache_resource
 def init_supabase() -> Client:

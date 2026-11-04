@@ -46,9 +46,9 @@ st.markdown("""
 # ==========================================
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyGm-pDC2avah3JdRr-df856xyglaDr3aD4u1dNW3aB18JwhQpEp-5-Om-pMSBV5Gga/exec"
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip()
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_secret_EZsm-V3EgQ7XVYmWWybspQ_iXQtth5o").strip()
-SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "https://kqalrigciifqvirejgoe.supabase.co").strip()
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://kqalrigciifqvirejgoe.supabase.co").strip()
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_E6g6X8EpkewpMvOiFnml5A_9yNr9GBC").strip()
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
 
 @st.cache_resource
 def init_supabase() -> Client:

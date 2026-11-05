@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import re
 import io
+import csv
 import datetime
 import requests
 from supabase import create_client, Client
@@ -177,7 +178,7 @@ def guardar_historial_bd(user_id, nombre_archivo, categoria, filas, testigo):
         pass
 
 # ==========================================
-# PESTAÑA 1: FILTRO OPERATIVO (INTACTO)
+# PESTAÑA 1: FILTRO OPERATIVO
 # ==========================================
 with tabs[0]:
     def obtener_ip_usuario():
@@ -222,7 +223,17 @@ with tabs[0]:
                 dfs = []
                 for file in uploaded_files:
                     if file.name.endswith('.csv'):
-                        dfs.append(pd.read_csv(file, encoding='utf-8', on_bad_lines='skip', dtype=str))
+                        df_temp = pd.read_csv(file, encoding='utf-8', on_bad_lines='skip', dtype=str)
+                        
+                        # Blindaje para CSVs encapsulados en una sola columna entre comillas
+                        if len(df_temp.columns) == 1 and (',' in str(df_temp.columns[0]) or ';' in str(df_temp.columns[0])):
+                            file.seek(0)
+                            sep_char = ';' if ';' in str(df_temp.columns[0]) and ',' not in str(df_temp.columns[0]) else ','
+                            df_temp = pd.read_csv(file, sep=sep_char, encoding='utf-8', on_bad_lines='skip', dtype=str, quoting=csv.QUOTE_NONE)
+                            df_temp.columns = [str(c).strip().strip('"').strip("'") for c in df_temp.columns]
+                            df_temp = df_temp.apply(lambda col: col.map(lambda x: str(x).strip().strip('"').strip("'") if pd.notna(x) else x))
+                            
+                        dfs.append(df_temp)
                     else:
                         dfs.append(pd.read_excel(file, dtype=str))
                 df = pd.concat(dfs, ignore_index=True)
